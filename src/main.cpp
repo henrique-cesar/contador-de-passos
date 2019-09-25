@@ -1,9 +1,12 @@
+/*#define BLYNK_PRINT Serial
 #include <Arduino.h>
 
-
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
 #include "I2Cdev.h"
 
 #include "MPU6050_6Axis_MotionApps20.h"
+
 
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
     #include "Wire.h"
@@ -11,6 +14,12 @@
 
 MPU6050 mpu;
 
+#define BLYNK_PRINT Serial
+
+char auth[] = "ZeiaFIohBcl2e_kcxA7BOeKGeuE6VSKw";
+
+char ssid[] = "jualabs";
+char pass[] = "jualabsufrpe";
 
 // uncomment "OUTPUT_READABLE_QUATERNION" if you want to see the actual
 // quaternion components in a [w, x, y, z] format (not best for parsing
@@ -77,7 +86,7 @@ uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\
 // CONTADOR DE PASSOS
 int passos = 0;
 float base;
-float variation = 15;
+float variation = 10;
 bool inicio = true;
 
 
@@ -95,6 +104,18 @@ float getPitch(float val) {
     return val * 180/M_PI;
 }
 
+// ================================================================
+// ===                      INITIAL VARIABLES                   ===
+// ================================================================
+
+float altura;
+float peso;
+String sexo;
+float velocidade;
+float distancia;
+float tempo;
+float calorias;
+bool sentido = false;
 
 
 // ================================================================
@@ -114,6 +135,7 @@ void setup() {
     // (115200 chosen because it is required for Teapot Demo output, but it's
     // really up to you depending on your project)
     Serial.begin(115200);
+    Blynk.begin(auth, ssid, pass);
     while (!Serial); // wait for Leonardo enumeration, others continue immediately
 
     // NOTE: 8MHz or slower host processors, like the Teensy @ 3.3V or Arduino
@@ -187,6 +209,7 @@ void setup() {
 // ================================================================
 
 void loop() {
+    Blynk.run();
     // if programming failed, don't try to do anything
     if (!dmpReady) return;
 
@@ -270,15 +293,16 @@ void loop() {
             * Serial.print(ypr[1] * 180/M_PI);
             * Serial.print("\t");
             * Serial.println(ypr[2] * 180/M_PI);
-            * */
+            * 
             if (inicio) {
                 base = getPitch(ypr[1]);
                 inicio = false;
             }
 
-            if ((getPitch(ypr[1]) > base + variation) || (getPitch(ypr[1]) < base - variation)){
+            if ((getPitch(ypr[1]) > base + variation && !sentido) || (getPitch(ypr[1]) < base - variation && sentido)){
                 passos++;
                 base = getPitch(ypr[1]);
+                sentido = !sentido;
                 Serial.print("Passos: ");
                 Serial.println(passos);
            }
@@ -335,3 +359,4 @@ void loop() {
         digitalWrite(LED_PIN, blinkState);
     }
 }
+*/
