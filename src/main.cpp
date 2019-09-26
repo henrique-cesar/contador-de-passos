@@ -1,4 +1,4 @@
-/*#define BLYNK_PRINT Serial
+#define BLYNK_PRINT Serial
 #include <Arduino.h>
 
 #include <ESP8266WiFi.h>
@@ -83,13 +83,6 @@ float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gra
 uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\n' };
 
 
-// CONTADOR DE PASSOS
-int passos = 0;
-float base;
-float variation = 10;
-bool inicio = true;
-
-
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
 // ================================================================
@@ -107,17 +100,50 @@ float getPitch(float val) {
 // ================================================================
 // ===                      INITIAL VARIABLES                   ===
 // ================================================================
+// CONTADOR DE PASSOS
+int passos = 0;
+float base;
+float variation = 10;
+bool inicio = true;
+bool sentido = false;
 
+// VARIAVEIS ADICIONAIS
 float altura;
 float peso;
 String sexo;
+float cp;
 float velocidade;
 float distancia;
-float tempo;
+float segundos;
 float calorias;
-bool sentido = false;
+double MET;
+
+//BUTTONS TO BLYNK
+int start;
+int input;
+int botaoModo;
+WidgetLCD lcd;
 
 
+// ================================================================
+// ===                      BLYNK CONFIG                        ===
+// ================================================================
+
+BLYNK_WRITE(V0) {
+    start = param.asInt();
+}
+
+BLYNK_WRITE(V1){
+    botaoModo = param.asInt();
+}
+
+BLYNK_WRITE(V2){
+    input = param.asDouble();
+}
+
+BLYNK_WRITE(V4){
+    sexo = param.asInt();
+}
 // ================================================================
 // ===                      INITIAL SETUP                       ===
 // ================================================================
@@ -204,12 +230,12 @@ void setup() {
 
 
 
+
 // ================================================================
-// ===                    MAIN PROGRAM LOOP                     ===
+// ===                    FUNCTION TO COUNT STEPS               ===
 // ================================================================
 
-void loop() {
-    Blynk.run();
+void footStepsSetup() {
     // if programming failed, don't try to do anything
     if (!dmpReady) return;
 
@@ -287,13 +313,7 @@ void loop() {
             mpu.dmpGetQuaternion(&q, fifoBuffer);
             mpu.dmpGetGravity(&gravity, &q);
             mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-            /*Serial.print("ypr\t");
-            * Serial.print(ypr[0] * 180/M_PI);
-            * Serial.print("\t");
-            * Serial.print(ypr[1] * 180/M_PI);
-            * Serial.print("\t");
-            * Serial.println(ypr[2] * 180/M_PI);
-            * 
+            
             if (inicio) {
                 base = getPitch(ypr[1]);
                 inicio = false;
@@ -359,4 +379,98 @@ void loop() {
         digitalWrite(LED_PIN, blinkState);
     }
 }
-*/
+
+// ================================================================
+// ===                    MAIN PROGRAM LOOP                     ===
+// ================================================================
+void calculateMET(){
+    if(velocidade >= 2){
+        MET = 7.5;
+    } else if (velocidade > 0 && velocidade < 2 )
+    {
+        MET = 3.8;
+    } else
+    {
+       MET = 1.3;
+    }
+}
+void sexoFeminino(){
+    cp = altura * 0.415;
+}
+void sexoMasculino(){
+    cp = altura * 0.413;
+}
+
+void loop(){
+    Blynk.run();
+    
+    if (altura == 0){
+        Serial.println("altura não definida");
+        Serial.println("Informe a altura");
+        lcd.clear();
+        lcd.print(0,0, "informe: ");
+        lcd.print(1,0, "altura (m)");
+
+        while (altura == 0)
+        {
+            Blynk.run();
+            altura = input;
+            delay(150);
+            input = 0;
+            Serial.printf("altura %f\n", altura);
+        }
+    }
+
+    if(peso == 0){
+        Serial.println("peso não definido");
+        Serial.println("Informe o peso");
+        lcd.clear();
+        lcd.print(0,0, "informe: ");
+        lcd.print(1,0, "peso (kg)");
+
+        while (peso == 0)
+        {
+            Blynk.run();
+            peso = input;
+            delay(150);
+            input = 0;
+            Serial.printf("peso %f\n", peso);
+        }
+    }
+    if(sexo == ""){
+        lcd.clear();
+        while (sexo == "")
+        {
+            lcd.print(0,0, "informe: ");
+            lcd.print(1,0, "sexo");
+            delay(150);
+        }
+    }
+    if(sexo == "m"){
+        sexoMasculino();
+    }
+    if(sexo == "f"){
+        sexoFeminino();
+    }
+
+    if(start == 1){
+        delayMicroseconds(1);
+        segundos++;
+        footStepsSetup();
+        distancia = cp * passos;
+        velocidade = distancia / segundos;
+        calculateMET();
+
+        calorias = MET * peso * (segundos / 3600);
+        Serial.printf("Nº Passos: %d\n", passos);
+    }
+    else {
+        passos = 0;
+        segundos = 0;
+        calorias = 0;
+        velocidade = 0;
+        distancia = 0;
+    }
+    
+
+}
