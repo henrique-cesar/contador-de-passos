@@ -4,6 +4,7 @@
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
 #include "I2Cdev.h"
+BlynkTimer timer;
 
 #include "MPU6050_6Axis_MotionApps20.h"
 
@@ -16,10 +17,11 @@ MPU6050 mpu;
 
 #define BLYNK_PRINT Serial
 
-char auth[] = "ZeiaFIohBcl2e_kcxA7BOeKGeuE6VSKw";
+char auth[] = "m1SYTF8Rz5UPYDf8oHK6VFAilbJcVHKh";
 
-char ssid[] = "jualabs";
-char pass[] = "jualabsufrpe";
+char ssid[] = "Bruno E Malf";
+char pass[] = "MALFLPV8";
+
 
 // uncomment "OUTPUT_READABLE_QUATERNION" if you want to see the actual
 // quaternion components in a [w, x, y, z] format (not best for parsing
@@ -110,21 +112,62 @@ bool sentido = false;
 // VARIAVEIS ADICIONAIS
 float altura;
 float peso;
-String sexo;
+int sexo;
 float cp;
 float velocidade;
 float distancia;
 float segundos;
 float calorias;
 double MET;
+int modoController;
+String stringModo;
+String stringValor;
 
 //BUTTONS TO BLYNK
 int start;
-int input;
+float input;
 int botaoModo;
-WidgetLCD lcd;
+WidgetLCD lcd(V8);
 
 
+// ================================================================
+// ===                      PRINT FUNCTIONS                     ===
+// ================================================================
+void imprimeLcd(){
+    segundos++;
+    lcd.clear();
+    lcd.print(0, 0, stringModo);
+    lcd.print(0, 1, stringValor);
+}
+void imprimePassos()
+{
+    lcd.clear();
+    lcd.print(0,0, "Passos: ");
+    lcd.print(0,1, passos);
+    Serial.print("Passos: ");
+    Serial.printf("%d",passos);
+}
+
+void imprimeCalorias(){
+    lcd.clear();
+    lcd.print(0,0, "Calorias: ");
+    lcd.print(0,1, calorias);
+    Serial.print(calorias);
+}
+
+void imprimeVelocidade(){
+    lcd.clear();
+    lcd.print(0,0, "Velocidade: ");
+    lcd.print(0,1, velocidade);
+    Serial.print(velocidade);
+}
+
+void imprimeDistancia(){
+    lcd.clear();
+    lcd.print(0,0, "Distancia: ");
+    lcd.print(0,1, distancia);
+    Serial.print(distancia);
+}
 // ================================================================
 // ===                      BLYNK CONFIG                        ===
 // ================================================================
@@ -149,6 +192,7 @@ BLYNK_WRITE(V4){
 // ================================================================
 
 void setup() {
+    timer.setInterval(1000L,imprimeLcd);
     // join I2C bus (I2Cdev library doesn't do this automatically)
     #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
         Wire.begin(D5, D6);
@@ -269,7 +313,7 @@ void footStepsSetup() {
         // reset so we can continue cleanly
         mpu.resetFIFO();
         fifoCount = mpu.getFIFOCount();
-        Serial.println(F("FIFO overflow!"));
+        //Serial.println(F("FIFO overflow!"));
 
     // otherwise, check for DMP data ready interrupt (this should happen frequently)
     } else if (mpuIntStatus & _BV(MPU6050_INTERRUPT_DMP_INT_BIT)) {
@@ -383,6 +427,9 @@ void footStepsSetup() {
 // ================================================================
 // ===                    MAIN PROGRAM LOOP                     ===
 // ================================================================
+void sendUpTime(){
+    segundos++;
+}
 void calculateMET(){
     if(velocidade >= 2){
         MET = 7.5;
@@ -394,12 +441,43 @@ void calculateMET(){
        MET = 1.3;
     }
 }
+void alteraModo(){
+    if(start == 1){
+        if(modoController % 4 == 0){
+            modoController++;
+            imprimePassos();
+        }
+        if(modoController %4 == 1){
+            modoController++;
+            stringModo = "Calorias: ";
+            stringValor = String(calorias);
+            //imprimeCalorias();
+        }
+        if(modoController %4 == 2){
+            modoController++;
+            stringModo = "Velocidade: ";
+            stringValor = String(velocidade);
+            //imprimeVelocidade();
+        }
+        if(modoController %4 == 3){
+            modoController++;
+            stringModo = "Distancia: ";
+            stringValor = String(distancia);
+            imprimeDistancia();
+        }
+        else{
+            modoController = 0;
+        }
+    }
+}
 void sexoFeminino(){
     cp = altura * 0.415;
 }
 void sexoMasculino(){
     cp = altura * 0.413;
 }
+
+
 
 void loop(){
     Blynk.run();
@@ -409,7 +487,7 @@ void loop(){
         Serial.println("Informe a altura");
         lcd.clear();
         lcd.print(0,0, "informe: ");
-        lcd.print(1,0, "altura (m)");
+        lcd.print(0,1, "altura (m)");
 
         while (altura == 0)
         {
@@ -426,7 +504,7 @@ void loop(){
         Serial.println("Informe o peso");
         lcd.clear();
         lcd.print(0,0, "informe: ");
-        lcd.print(1,0, "peso (kg)");
+        lcd.print(0,1, "peso (kg)");
 
         while (peso == 0)
         {
@@ -437,40 +515,40 @@ void loop(){
             Serial.printf("peso %f\n", peso);
         }
     }
-    if(sexo == ""){
+    if(sexo == 0){
         lcd.clear();
-        while (sexo == "")
+        while (sexo == 0)
         {
             lcd.print(0,0, "informe: ");
-            lcd.print(1,0, "sexo");
+            lcd.print(0,1, "sexo");
             delay(150);
         }
     }
-    if(sexo == "m"){
+    if(sexo == 1){
         sexoMasculino();
     }
-    if(sexo == "f"){
+    if(sexo == 2){
         sexoFeminino();
     }
 
     if(start == 1){
-        delayMicroseconds(1);
-        segundos++;
+        Serial.print(botaoModo);
+
+        lcd.clear();
         footStepsSetup();
+        calorias = MET * peso * (segundos / 3600);
+        calculateMET();
         distancia = cp * passos;
         velocidade = distancia / segundos;
-        calculateMET();
 
-        calorias = MET * peso * (segundos / 3600);
-        Serial.printf("Nº Passos: %d\n", passos);
-    }
+        }     
     else {
         passos = 0;
         segundos = 0;
         calorias = 0;
         velocidade = 0;
         distancia = 0;
+        modoController = 0;
     }
     
-
 }
